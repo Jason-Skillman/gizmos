@@ -208,7 +208,7 @@ namespace Popcron
             }
             else
             {
-                RenderPipelineManager.endCameraRendering += OnRendered;
+                //RenderPipelineManager.endCameraRendering += OnRendered;
             }
         }
 
@@ -220,7 +220,7 @@ namespace Popcron
             }
             else
             {
-                RenderPipelineManager.endCameraRendering -= OnRendered;
+                //RenderPipelineManager.endCameraRendering -= OnRendered;
             }
         }
 
@@ -286,6 +286,111 @@ namespace Popcron
 			//always render something
 			Gizmos.Line(default, default);
 		}
+
+        private void OnRenderObject()
+        {
+            Material.SetPass(Gizmos.Pass);
+			
+            //shouldnt be rendering
+            if (!Gizmos.Enabled)
+            {
+                queueIndex = 0;
+            }
+
+            //check if this camera is ok to render with
+            /*if (!ShouldRenderCamera(camera))
+            {
+				GL.PushMatrix();
+				GL.Begin(GL.LINES);
+				
+				//bla bla bla
+				
+				GL.End();
+				GL.PopMatrix();
+                return;
+            }*/
+
+            Vector3 offset = Gizmos.Offset;
+
+            GL.PushMatrix();
+            GL.MultMatrix(Matrix4x4.identity);
+            GL.Begin(GL.LINES);
+
+            bool alt = CurrentTime % 1 > 0.5f;
+            float dashGap = Mathf.Clamp(Gizmos.DashGap, 0.01f, 32f);
+            bool frustumCull = Gizmos.FrustumCulling;
+            List<Vector3> points = new List<Vector3>();
+
+            //draw le elements
+            for (int e = 0; e < queueIndex; e++)
+            {
+                //just in case
+                if (queue.Length <= e)
+                {
+                    break;
+                }
+
+                Element element = queue[e];
+
+                //dont render this thingy if its not inside the frustum
+                if (frustumCull)
+                {
+                    /*if (!IsVisibleByCamera(element, camera))
+                    {
+                        continue;
+                    }*/
+                }
+
+                points.Clear();
+                if (element.dashed)
+                {
+                    //subdivide
+                    for (int i = 0; i < element.points.Length - 1; i++)
+                    {
+                        Vector3 pointA = element.points[i];
+                        Vector3 pointB = element.points[i + 1];
+                        Vector3 direction = pointB - pointA;
+                        if (direction.sqrMagnitude > dashGap * dashGap * 2f)
+                        {
+                            float magnitude = direction.magnitude;
+                            int amount = Mathf.RoundToInt(magnitude / dashGap);
+                            direction /= magnitude;
+
+                            for (int p = 0; p < amount - 1; p++)
+                            {
+                                if (p % 2 == (alt ? 1 : 0))
+                                {
+                                    float startLerp = p / (amount - 1f);
+                                    float endLerp = (p + 1) / (amount - 1f);
+                                    Vector3 start = Vector3.Lerp(pointA, pointB, startLerp);
+                                    Vector3 end = Vector3.Lerp(pointA, pointB, endLerp);
+                                    points.Add(start);
+                                    points.Add(end);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            points.Add(pointA);
+                            points.Add(pointB);
+                        }
+                    }
+                }
+                else
+                {
+                    points.AddRange(element.points);
+                }
+
+                GL.Color(element.color);
+                for (int i = 0; i < points.Count; i++)
+                {
+                    GL.Vertex(points[i] + offset);
+                }
+            }
+
+            GL.End();
+            GL.PopMatrix();
+        }
 
         private void OnRendered(Camera camera)
         {
